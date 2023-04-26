@@ -1,4 +1,4 @@
-export type WebsocketMessage = MovenetMessage | DeviceMessage
+export type WebsocketMessage = MovenetMessage | InitMessage
 
 
 // --- Message ---
@@ -7,14 +7,14 @@ export interface MovenetMessage {
     data : MovenetData
 }
 
-export interface DeviceMessage {
-    type : MessageType.DEVICE
+export interface InitMessage {
+    type : MessageType.INIT
     data : DeviceData
 }
 
 export enum MessageType {
   MOVENET = "MOVENET",
-  DEVICE = "DEVICE",
+  INIT = "INIT",
 }
 
 // --- Device ---
