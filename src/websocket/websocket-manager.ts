@@ -1,7 +1,13 @@
 import WebSocket from "ws";
-import { InitMessage, MessageType, WebsocketMessage } from "./types";
+import {
+  InitMessage,
+  MessageType,
+  MovenetMessage,
+  WebsocketMessage,
+} from "./types";
 import { ClientManager } from "../clients/clients-manager";
-import { Client } from "../clients/types";
+import { Movenet } from "../movenet/movenet";
+import { parseMovenetRawData } from "../movenet/utils";
 
 export class WebSocketManager {
   clientManager = new ClientManager();
@@ -9,9 +15,10 @@ export class WebSocketManager {
   onMessage(msg: WebsocketMessage, sender: WebSocket): void {
     switch (msg.type) {
       case MessageType.INIT:
-        this.onInitMessage(msg, sender)
+        this.onInitMessage(msg, sender);
         break;
       case MessageType.MOVENET:
+        this.onMovenetMessage(msg, sender);
         break;
 
       default:
@@ -31,5 +38,13 @@ export class WebSocketManager {
       name: msg.data.name,
       ws: sender,
     });
+  }
+
+  onMovenetMessage(msg: MovenetMessage, sender: WebSocket) {
+    const { right_wrist } = parseMovenetRawData(msg.data);
+
+    // Voir avec lucas pour envoyer les donnée et les transformer en déplacement
+    console.log(Movenet.convertPositionToCross(right_wrist));
+    console.log(Movenet.convertPositionToPercent(right_wrist));
   }
 }

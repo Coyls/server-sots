@@ -14,7 +14,7 @@ webSocketServer.on("connection", (ws: WebSocket) => {
     const msgToString = isBinary ? msg : msg.toString();
 
     if (msgToString !== "undefined") {
-      console.log("msgToString:", msgToString);
+      // console.log("msgToString:", msgToString);
       websocketManager.onMessage(parseMessage(msgToString), ws);
     }
   });
