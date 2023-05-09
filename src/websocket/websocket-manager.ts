@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import {
+  ArucoMessage,
   InitMessage,
   MessageType,
   MovenetMessage,
@@ -20,6 +21,9 @@ export class WebSocketManager {
       case MessageType.MOVENET:
         this.onMovenetMessage(msg, sender);
         break;
+      case MessageType.ARUCO:
+        this.onArucoMessage(msg, sender);
+        break;
 
       default:
         console.log("msg", msg);
@@ -34,6 +38,8 @@ export class WebSocketManager {
   }
 
   onInitMessage(msg: InitMessage, sender: WebSocket) {
+    console.log("msg:", msg);
+    // console.log(msg.data.name + " connect !");
     this.clientManager.addClient({
       name: msg.data.name,
       ws: sender,
@@ -46,5 +52,19 @@ export class WebSocketManager {
     // Voir avec lucas pour envoyer les donnée et les transformer en déplacement
     console.log(Movenet.convertPositionToCross(right_wrist));
     console.log(Movenet.convertPositionToPercent(right_wrist));
+  }
+
+  onArucoMessage(msg: ArucoMessage, sender: WebSocket) {
+    const { data } = msg;
+
+    const message: WebsocketMessage = {
+      type: MessageType.ARUCO,
+      data: {
+        x: (data.x * 100) / 1000,
+        y: (data.y * 100) / 1000,
+      },
+    };
+
+    this.clientManager.sendToId("unity", message);
   }
 }

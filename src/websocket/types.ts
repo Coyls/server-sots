@@ -1,4 +1,4 @@
-export type WebsocketMessage = MovenetMessage | InitMessage;
+export type WebsocketMessage = MovenetMessage | InitMessage | ArucoMessage;
 
 // --- Message ---
 export interface MovenetMessage {
@@ -11,9 +11,21 @@ export interface InitMessage {
   data: DeviceData;
 }
 
+export interface ArucoMessage {
+  type: MessageType.ARUCO;
+  data: ArucoData;
+}
+
 export enum MessageType {
+  ARUCO = "ARUCO",
   MOVENET = "MOVENET",
   INIT = "INIT",
+}
+
+// -- Aruco --
+export interface ArucoData {
+  x: number;
+  y: number;
 }
 
 // --- Device ---

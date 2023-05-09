@@ -20,4 +20,9 @@ export class ClientManager {
       client.ws.send(JSON.stringify(message));
     }
   };
+
+  sendToId = (id: string, message: WebsocketMessage) => {
+    const client = this.clients.find((cli) => cli.name === id);
+    client?.ws.send(JSON.stringify(message));
+  };
 }
