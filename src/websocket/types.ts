@@ -24,6 +24,11 @@ export enum MessageType {
 
 // -- Aruco --
 export interface ArucoData {
+  p1 : Coords
+  p2 : Coords
+}
+
+export interface Coords {
   x: number;
   y: number;
 }

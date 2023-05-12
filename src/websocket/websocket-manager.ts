@@ -55,16 +55,6 @@ export class WebSocketManager {
   }
 
   onArucoMessage(msg: ArucoMessage, sender: WebSocket) {
-    const { data } = msg;
-
-    const message: WebsocketMessage = {
-      type: MessageType.ARUCO,
-      data: {
-        x: (data.x * 100) / 1000,
-        y: (data.y * 100) / 1000,
-      },
-    };
-
-    this.clientManager.sendToId("unity", message);
+    this.clientManager.sendToId("unity", msg);
   }
 }
