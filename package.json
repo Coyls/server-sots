@@ -4,7 +4,10 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "start": "npx tsc && node ./dist/index.js"
+    "start": "npx tsc && node ./dist/index.js",
+    "find-puck":"sudo node ./src/puck/fd.js",
+    "puck": "sudo node ./src/puck/puck.js",
+    "blue": "sudo python3 ./src/bluetile/bluetile.py"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +19,7 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
+    "@abandonware/noble": "^1.9.2-21",
     "express": "^4.18.2",
     "ws": "^8.13.0"
   },

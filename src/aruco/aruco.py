@@ -13,7 +13,7 @@ import json
 
 # Create ws
 ws = create_connection("ws://localhost:3000")
-ws.send(json.dumps({"type": "INIT", "data": {"name": "aruco"}}))
+ws.send(json.dumps({"type": "INIT", "data": {"name": "blue"}}))
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()

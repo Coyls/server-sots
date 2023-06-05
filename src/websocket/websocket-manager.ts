@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import {
   ArucoMessage,
+  BlueMessage,
   InitMessage,
   MessageType,
   MovenetMessage,
@@ -24,6 +25,8 @@ export class WebSocketManager {
       case MessageType.ARUCO:
         this.onArucoMessage(msg, sender);
         break;
+      case MessageType.BLUE:
+        this.onBlueMessage(msg, sender);
 
       default:
         console.log("msg", msg);
@@ -55,6 +58,11 @@ export class WebSocketManager {
   }
 
   onArucoMessage(msg: ArucoMessage, sender: WebSocket) {
+    this.clientManager.sendToId("unity", msg);
+  }
+
+  onBlueMessage(msg: BlueMessage, sender: WebSocket) {
+    console.log("msg", msg);
     this.clientManager.sendToId("unity", msg);
   }
 }
