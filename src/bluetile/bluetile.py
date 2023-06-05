@@ -25,9 +25,16 @@ INTRO = """##################
 SCANNING_TIME_s = 5
 
 # Number of notifications to get before disabling them.
-NOTIFICATIONS = 10000
+# NOTIFICATIONS = 10000
 
-# Create ws
+# Tresh 
+TRESHOLD = 5000 
+
+# Debounce
+DEBOUNCE = 20
+
+
+# -- WS --
 ws = create_connection("ws://localhost:3000")
 ws.send(json.dumps({"type": "INIT", "data": {"name": "blue"}}))
 
@@ -107,7 +114,8 @@ class MyNodeListener(NodeListener):
 #
 class MyFeatureListener(FeatureListener):
 
-    _notifications = 0
+    _debounce = 0
+
     """Counting notifications to print only the desired ones."""
 
     #
@@ -117,25 +125,23 @@ class MyFeatureListener(FeatureListener):
     # @param sample  Data extracted from the feature.
     #
     def on_update(self, feature, sample):
-        if self._notifications < NOTIFICATIONS:
-            self._notifications += 1
-            # print(feature.FEATURE_NAME)
-            # print(feature.FEATURE_X_FIELD)
-            # print(feature.read_accelerometer())
-            # print(feature.extract_data())
+        x = feature.get_accelerometer_x(sample)
+        y = feature.get_accelerometer_y(sample)
+        z = feature.get_accelerometer_z(sample)
+        treshold = abs(x) + abs(y) + abs(z)
 
-            x = feature.get_accelerometer_x(sample)
-            y = feature.get_accelerometer_y(sample)
-            z = feature.get_accelerometer_z(sample)
-            treshold = abs(x) + abs(y) + abs(z)
+        if (self._debounce > 0):
+            self._debounce = self._debounce-1
 
-            if (treshold > 5500):
-                dataToSend = {
-                    "type": "BLUE",
-                    "data": "true"
-                }
+        if (treshold > TRESHOLD and self._debounce == 0):
+            dataToSend = {
+                "type": "BLUE",
+                "data": "true"
+            }
 
-                ws.send(json.dumps(dataToSend))
+            ws.send(json.dumps(dataToSend))
+            self._debounce = DEBOUNCE
+
 
 # MAIN APPLICATION
 
@@ -238,11 +244,11 @@ def main(argv):
 
                 # Getting notifications.
                 notifications = 0
-                while notifications < NOTIFICATIONS:
+                while True:  # notifications < NOTIFICATIONS:
                     if device.wait_for_notifications(0.05):
                         notifications += 1
 
-                # Disabling notifications.
+                        # Disabling notifications.
                 device.disable_notifications(feature)
                 feature.remove_listener(feature_listener)
 

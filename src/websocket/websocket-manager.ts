@@ -27,7 +27,7 @@ export class WebSocketManager {
         break;
       case MessageType.BLUE:
         this.onBlueMessage(msg, sender);
-
+        break;
       default:
         console.log("msg", msg);
         break;
@@ -41,7 +41,7 @@ export class WebSocketManager {
   }
 
   onInitMessage(msg: InitMessage, sender: WebSocket) {
-    console.log("msg:", msg);
+    console.log("INIT:", msg);
     // console.log(msg.data.name + " connect !");
     this.clientManager.addClient({
       name: msg.data.name,
