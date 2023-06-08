@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 
+# IMPORT
 from __future__ import print_function
 import sys
 import os
 import time
+import threading
 from abc import abstractmethod
 
 from blue_st_sdk.manager import Manager
 from blue_st_sdk.manager import ManagerListener
 from blue_st_sdk.node import NodeListener
 from blue_st_sdk.feature import FeatureListener
+from blue_st_sdk.features.audio.adpcm.feature_audio_adpcm import FeatureAudioADPCM
+from blue_st_sdk.features.audio.adpcm.feature_audio_adpcm_sync import FeatureAudioADPCMSync
 from websocket import create_connection
 import json
-# from blue_st_sdk.features.feature_accelerometer import FeatureAccelerometer
 
 # CONSTANTS
 
@@ -22,29 +25,28 @@ INTRO = """##################
 ##################"""
 
 # Bluetooth Scanning time in seconds (optional).
-SCANNING_TIME_s = 5
+SCANNING_TIME_s = 7
 
-# Number of notifications to get before disabling them.
-# NOTIFICATIONS = 10000
-
-# Tresh 
-TRESHOLD = 5000 
+# Tresh
+TRESHOLD = 4000
 
 # Debounce
 DEBOUNCE = 20
+
+P1 = "BCN-015"
+P2 = "BCN-424"
 
 
 # -- WS --
 ws = create_connection("ws://localhost:3000")
 ws.send(json.dumps({"type": "INIT", "data": {"name": "blue"}}))
 
+
 # FUNCTIONS
 
 #
 # Printing intro.
 #
-
-
 def print_intro():
     print('\n' + INTRO + '\n')
 
@@ -102,10 +104,6 @@ class MyNodeListener(NodeListener):
     def on_disconnect(self, node, unexpected=False):
         print('Device %s disconnected%s.' %
               (node.get_name(), ' unexpectedly' if unexpected else ''))
-        if unexpected:
-            # Exiting.
-            print('\nExiting...\n')
-            sys.exit(0)
 
 
 #
@@ -115,8 +113,6 @@ class MyNodeListener(NodeListener):
 class MyFeatureListener(FeatureListener):
 
     _debounce = 0
-
-    """Counting notifications to print only the desired ones."""
 
     #
     # To be called whenever the feature updates its data.
@@ -134,10 +130,13 @@ class MyFeatureListener(FeatureListener):
             self._debounce = self._debounce-1
 
         if (treshold > TRESHOLD and self._debounce == 0):
+
+            player = "p1" if feature.get_parent_node().get_name() == P1 else "p2"
+
             dataToSend = {
                 "type": "BLUE",
                 "data": {
-                    "player" : "p1"
+                    "player": player
                 }
             }
 
@@ -145,13 +144,61 @@ class MyFeatureListener(FeatureListener):
             self._debounce = DEBOUNCE
 
 
+class DeviceThread(threading.Thread):
+    """Class to handle a device in a thread."""
+
+    def __init__(self, device, *args, **kwargs):
+        """Constructor.
+
+        Args:
+            device (:class:`blue_st_sdk.node.Node`): The device to handle.
+        """
+        super(DeviceThread, self).__init__(*args, **kwargs)
+        self._device = device
+
+    def run(self):
+        """Run the thread."""
+
+        # Connecting to the device.
+        self._device.add_listener(MyNodeListener())
+        print('Connecting to %s...' % (self._device.get_name()))
+        if not self._device.connect():
+            print('Connection failed.\n')
+            return
+
+        # Getting features.
+        features = self._device.get_features()
+
+        feature = features[5]
+
+        # Enabling notifications.
+        feature_listener = MyFeatureListener()
+        feature.add_listener(feature_listener)
+        self._device.enable_notifications(feature)
+
+        # Enabling notifications.
+        """ for feature in features:
+            # For simplicity let's skip audio features.
+            if not isinstance(feature, FeatureAudioADPCM) and \
+                    not isinstance(feature, FeatureAudioADPCMSync):
+                feature.add_listener(MyFeatureListener())
+                self._device.enable_notifications(feature) """
+
+        # Getting notifications.
+        while True:
+            if self._device.wait_for_notifications(0.05):
+                pass
+
+    def get_device(self):
+        """Get the handled device."""
+        return self._device
+
+
 # MAIN APPLICATION
 
 #
 # Main application.
 #
-
-
 def main(argv):
 
     # Printing intro.
@@ -163,103 +210,66 @@ def main(argv):
         manager_listener = MyManagerListener()
         manager.add_listener(manager_listener)
 
+        # Synchronous discovery of Bluetooth devices.
+        print('Scanning Bluetooth devices...\n')
+        manager.discover(SCANNING_TIME_s)
+
+        # Getting discovered devices.
+        discovered_devices = manager.get_nodes()
+
+        # Listing discovered devices.
+        if not discovered_devices:
+            print('No Bluetooth devices found. Exiting...\n')
+            ws.close()
+            sys.exit(0)
+        print('Available Bluetooth devices:')
+        i = 1
+        for device in discovered_devices:
+            print('%d) %s: [%s]' % (i, device.get_name(), device.get_tag()))
+            i += 1
+
+        # Selecting devices to connect.
+        selected_devices = []
         while True:
-            # Synchronous discovery of Bluetooth devices.
-            print('Scanning Bluetooth devices...\n')
-            manager.discover(SCANNING_TIME_s)
-
-            # Alternative 1: Asynchronous discovery of Bluetooth devices.
-            #manager.discover(SCANNING_TIME_s, True)
-
-            # Alternative 2: Asynchronous discovery of Bluetooth devices.
-            # manager.start_discovery()
-            # time.sleep(SCANNING_TIME_s)
-            # manager.stop_discovery()
-
-            # Getting discovered devices.
-            discovered_devices = manager.get_nodes()
-
-            # Listing discovered devices.
-            if not discovered_devices:
-                print('No Bluetooth devices found. Exiting...\n')
-                sys.exit(0)
-            print('Available Bluetooth devices:')
-            i = 1
-            for device in discovered_devices:
-                print('%d) %s: [%s]' %
-                      (i, device.get_name(), device.get_tag()))
-                i += 1
-
-            # Selecting a device.
             while True:
                 choice = int(
-                    input("\nSelect a device to connect to (\'0\' to quit): "))
+                    input('\nSelect a device to connect to (\'0\' to finish): '))
                 if choice >= 0 and choice <= len(discovered_devices):
                     break
+
             if choice == 0:
-                # Exiting.
-                manager.remove_listener(manager_listener)
-                print('Exiting...\n')
-                sys.exit(0)
-            device = discovered_devices[choice - 1]
-            node_listener = MyNodeListener()
-            device.add_listener(node_listener)
+                break
+            else:
+                device = discovered_devices[choice - 1]
+                selected_devices.append(device)
+                print('Device %s added.' % (device.get_name()))
 
-            # Connecting to the device.
-            print('Connecting to %s...' % (device.get_name()))
-            if not device.connect():
-                print('Connection failed.\n')
-                continue
+        device_threads = []
+        if len(selected_devices) > 0:
+            # Starting threads.
+            print('\nConnecting to selected devices and getting notifications '
+                  'from all their features ("CTRL+C" to exit)...\n')
+            for device in selected_devices:
+                device_threads.append(DeviceThread(device).start())
+        else:
+            # Exiting.
+            manager.remove_listener(manager_listener)
+            print('Exiting...\n')
+            ws.close()
+            sys.exit(0)
 
-            while True:
-                # Getting features.
-                features = device.get_features()
-                print('\nFeatures:')
-                i = 1
-                for feature in features:
-                    print('%d) %s' % (i, feature.get_name()))
-                    i += 1
-
-                # Selecting a feature.
-                while True:
-                    choice = int(input('\nSelect a feature '
-                                       '(\'0\' to disconnect): '))
-                    if choice >= 0 and choice <= len(features):
-                        break
-                if choice == 0:
-                    # Disconnecting from the device.
-                    print('\nDisconnecting from %s...' % (device.get_name()))
-                    if not device.disconnect():
-                        print('Disconnection failed.\n')
-                        continue
-                    device.remove_listener(node_listener)
-                    # Resetting discovery.
-                    manager.reset_discovery()
-                    # Going back to the list of devices.
-                    break
-                feature = features[choice - 1]
-
-                # Enabling notifications.
-                feature_listener = MyFeatureListener()
-                feature.add_listener(feature_listener)
-                device.enable_notifications(feature)
-
-                # Getting notifications.
-                notifications = 0
-                while True:  # notifications < NOTIFICATIONS:
-                    if device.wait_for_notifications(0.05):
-                        notifications += 1
-
-                        # Disabling notifications.
-                device.disable_notifications(feature)
-                feature.remove_listener(feature_listener)
+        # Getting notifications.
+        while True:
+            pass
 
     except KeyboardInterrupt:
         try:
             # Exiting.
             print('\nExiting...\n')
+            ws.close()
             sys.exit(0)
         except SystemExit:
+            ws.close()
             os._exit(0)
 
 

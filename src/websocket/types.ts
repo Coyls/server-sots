@@ -22,7 +22,7 @@ export interface ArucoMessage {
 
 export interface BlueMessage {
   type: MessageType.BLUE;
-  data: boolean;
+  data: BlueData;
 }
 
 export enum MessageType {
@@ -30,6 +30,16 @@ export enum MessageType {
   MOVENET = "MOVENET",
   INIT = "INIT",
   BLUE = "BLUE",
+}
+
+// -- Blue --
+export interface BlueData {
+  player: Player;
+}
+
+enum Player {
+  p1 = "p1",
+  p2 = "p2",
 }
 
 // -- Aruco --
