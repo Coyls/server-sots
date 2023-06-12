@@ -21,11 +21,11 @@ import json
 
 # Presentation message.
 INTRO = """##################
-# Swords #
+# BlueST Example #
 ##################"""
 
 # Bluetooth Scanning time in seconds (optional).
-SCANNING_TIME_s = 5
+SCANNING_TIME_s = 7
 
 # Tresh
 TRESHOLD = 4000
@@ -169,13 +169,20 @@ class DeviceThread(threading.Thread):
         # Getting features.
         features = self._device.get_features()
 
-        # Accelerometre
         feature = features[5]
 
         # Enabling notifications.
         feature_listener = MyFeatureListener()
         feature.add_listener(feature_listener)
         self._device.enable_notifications(feature)
+
+        # Enabling notifications.
+        """ for feature in features:
+            # For simplicity let's skip audio features.
+            if not isinstance(feature, FeatureAudioADPCM) and \
+                    not isinstance(feature, FeatureAudioADPCMSync):
+                feature.add_listener(MyFeatureListener())
+                self._device.enable_notifications(feature) """
 
         # Getting notifications.
         while True:
@@ -198,50 +205,63 @@ def main(argv):
     print_intro()
 
     try:
+        # Creating Bluetooth Manager.
+        manager = Manager.instance()
+        manager_listener = MyManagerListener()
+        manager.add_listener(manager_listener)
 
+        # Synchronous discovery of Bluetooth devices.
+        print('Scanning Bluetooth devices...\n')
+        manager.discover(SCANNING_TIME_s)
+
+        # Getting discovered devices.
+        discovered_devices = manager.get_nodes()
+
+        # Listing discovered devices.
+        if not discovered_devices:
+            print('No Bluetooth devices found. Exiting...\n')
+            ws.close()
+            sys.exit(0)
+
+        print('Available Bluetooth devices:')
+        i = 1
+        for device in discovered_devices:
+            print('%d) %s: [%s]' % (i, device.get_name(), device.get_tag()))
+            i += 1
+
+        # Selecting devices to connect.
+        selected_devices = []
         while True:
-            # Creating Bluetooth Manager.
-            manager = Manager.instance()
-            manager.remove_nodes()
-            manager_listener = MyManagerListener()
-            manager.add_listener(manager_listener)
-            discovered_devices = []
+            while True:
+                choice = int(
+                    input('\nSelect a device to connect to (\'0\' to finish): '))
+                if choice >= 0 and choice <= len(discovered_devices):
+                    break
 
-            while len(discovered_devices) < 2:
-                # Synchronous discovery of Bluetooth devices.
-                print('Scanning Bluetooth devices...\n')
-                manager.discover(SCANNING_TIME_s)
-
-                # Getting discovered devices.
-                discovered_devices = manager.get_nodes()
-
-            print('Available Bluetooth devices:')
-            i = 1
-            for device in discovered_devices:
-                print(f'{i}) {device.get_name()}: [{device.get_tag()}]')
-                i += 1
-
-            # Selecting devices to connect.
-            selected_devices = []
-
-            for device in discovered_devices:
+            if choice == 0:
+                break
+            else:
+                device = discovered_devices[choice - 1]
                 selected_devices.append(device)
                 print('Device %s added.' % (device.get_name()))
 
-            device_threads: list[DeviceThread] = []
+        device_threads = []
+        if len(selected_devices) > 0:
+            # Starting threads.
+            print('\nConnecting to selected devices and getting notifications '
+                  'from all their features ("CTRL+C" to exit)...\n')
             for device in selected_devices:
-                device_threads.append(DeviceThread(device))
+                device_threads.append(DeviceThread(device).start())
+        else:
+            # Exiting.
+            manager.remove_listener(manager_listener)
+            print('Exiting...\n')
+            ws.close()
+            sys.exit(0)
 
-            for thread in device_threads:
-                thread.start()
-
-            allThreadsAlive = True
-            # Getting notifications.
-            while allThreadsAlive:
-                for thread in device_threads:
-                    if not thread.is_alive():
-                        print("Something wrong")
-                        allThreadsAlive = False
+        # Getting notifications.
+        while True:
+            pass
 
     except KeyboardInterrupt:
         try:
